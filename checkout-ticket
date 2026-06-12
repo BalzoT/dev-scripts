@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: checkout-ticket.sh <ticket-number>
+# Example: checkout-ticket.sh cb1-246
+#
+# Checks out develop, pulls, then finds the remote branch matching the
+# given ticket number and checks it out, pulling latest if it already exists.
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <ticket-number>"
+    echo "Example: $0 cb1-246"
+    exit 1
+fi
+
+TICKET="$1"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Error: not inside a git repository."
+    exit 1
+fi
+
+# Block if there are uncommitted local changes (staged or unstaged)
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "Error: you have uncommitted local changes. Commit or stash them before running this script."
+    git status --short
+    exit 1
+fi
+
+echo "==> Checking out develop"
+git checkout develop
+
+echo "==> Pulling develop"
+git pull --ff-only
+
+echo "==> Fetching remote branches"
+git fetch --all --prune
+
+# Find remote branches matching the ticket (case-insensitive)
+matches=()
+while IFS= read -r line; do
+    [ -n "$line" ] && matches+=("$line")
+done < <(git branch -r --list 'origin/*' \
+    | grep -iE -- "$TICKET" \
+    | grep -v 'HEAD' \
+    | sed 's|^[[:space:]]*origin/||' \
+    | sort -u)
+
+if [ ${#matches[@]} -eq 0 ]; then
+    echo "Error: no remote branches found matching '$TICKET'."
+    exit 1
+fi
+
+if [ ${#matches[@]} -gt 1 ]; then
+    echo "Multiple matching branches found:"
+    PS3="Select a branch (number): "
+    select choice in "${matches[@]}"; do
+        if [ -n "${choice:-}" ]; then
+            branch="$choice"
+            break
+        fi
+    done
+else
+    branch="${matches[0]}"
+fi
+
+echo "==> Checking out '$branch'"
+if git show-ref --verify --quiet "refs/heads/$branch"; then
+    git checkout "$branch"
+else
+    git checkout -b "$branch" --track "origin/$branch"
+fi
+
+echo "==> Pulling latest"
+git pull --ff-only
+
+echo "Done. On branch '$branch'."
