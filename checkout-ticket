@@ -5,7 +5,7 @@ set -euo pipefail
 # Example: checkout-ticket.sh cb1-246
 #
 # Checks out develop, pulls, then finds the remote branch matching the
-# given ticket number and checks it out, pulling latest if it already exists.
+# given ticket number and checks it out, resetting it to the remote if clean.
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <ticket-number>"
@@ -71,7 +71,13 @@ else
     git checkout -b "$branch" --track "origin/$branch"
 fi
 
-echo "==> Pulling latest"
-git pull --ff-only
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "Error: '$branch' has uncommitted local changes after checkout. Commit or stash them before resetting to remote."
+    git status --short
+    exit 1
+fi
+
+echo "==> Resetting '$branch' to origin/$branch"
+git reset --hard "origin/$branch"
 
 echo "Done. On branch '$branch'."
