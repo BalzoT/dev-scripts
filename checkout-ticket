@@ -1,39 +1,92 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: checkout-ticket.sh <ticket-number>
-# Example: checkout-ticket.sh cb1-246
+# Usage: checkout-ticket.sh <ticket-number> [--rebase-develop]
+# Example: checkout-ticket.sh cb1-246 --rebase-develop
 #
 # Checks out develop, pulls, then finds the remote branch matching the
 # given ticket number and checks it out, resetting it to the remote if clean.
+# Optionally attempts a conflict-free rebase on top of develop.
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <ticket-number>"
-    echo "Example: $0 cb1-246"
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    BOLD=$'\033[1m'
+    DIM=$'\033[2m'
+    RED=$'\033[31m'
+    GREEN=$'\033[32m'
+    BLUE=$'\033[34m'
+    YELLOW=$'\033[33m'
+    RESET=$'\033[0m'
+else
+    BOLD=""
+    DIM=""
+    RED=""
+    GREEN=""
+    BLUE=""
+    YELLOW=""
+    RESET=""
+fi
+
+usage() {
+    printf "%s\n" "${BOLD}Usage:${RESET} $0 <ticket-number> [--rebase-develop]"
+    printf "%s\n" "${DIM}Example:${RESET} $0 cb1-246 --rebase-develop"
+}
+
+info() {
+    printf "%s\n" "${BLUE}🔹${RESET} $*"
+}
+
+success() {
+    printf "%s\n" "${GREEN}✅${RESET} $*"
+}
+
+warn() {
+    printf "%s\n" "${YELLOW}⚠️${RESET} $*"
+}
+
+error() {
+    printf "%s\n" "${RED}❌ Error:${RESET} $*" >&2
+}
+
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    usage
     exit 1
 fi
 
 TICKET="$1"
+REBASE_WITH_DEVELOP=false
+
+if [ $# -eq 2 ]; then
+    case "$2" in
+        --rebase-develop|--rebase|rebase)
+            REBASE_WITH_DEVELOP=true
+            ;;
+        *)
+            error "unknown option '$2'."
+            usage
+            exit 1
+            ;;
+    esac
+fi
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "Error: not inside a git repository."
+    error "not inside a git repository."
     exit 1
 fi
 
 # Block if there are uncommitted local changes (staged or unstaged)
 if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "Error: you have uncommitted local changes. Commit or stash them before running this script."
-    git status --short
+    error "you have uncommitted local changes. Commit or stash them before running this script."
+    git status --short >&2
     exit 1
 fi
 
-echo "==> Checking out develop"
+info "Checking out ${BOLD}develop${RESET}"
 git checkout develop
 
-echo "==> Pulling develop"
+info "Pulling latest ${BOLD}develop${RESET}"
 git pull --ff-only
 
-echo "==> Fetching remote branches"
+info "Fetching remote branches"
 git fetch --all --prune
 
 # Find remote branches matching the ticket (case-insensitive)
@@ -47,24 +100,26 @@ done < <(git branch -r --list 'origin/*' \
     | sort -u)
 
 if [ ${#matches[@]} -eq 0 ]; then
-    echo "Error: no remote branches found matching '$TICKET'."
+    error "no remote branches found matching '${BOLD}$TICKET${RESET}'."
     exit 1
 fi
 
 if [ ${#matches[@]} -gt 1 ]; then
-    echo "Multiple matching branches found:"
-    PS3="Select a branch (number): "
+    warn "Multiple matching branches found for ${BOLD}$TICKET${RESET}:"
+    PS3="👉 Select a branch number: "
     select choice in "${matches[@]}"; do
         if [ -n "${choice:-}" ]; then
             branch="$choice"
             break
+        else
+            warn "Invalid selection. Choose one of the listed branch numbers."
         fi
     done
 else
     branch="${matches[0]}"
 fi
 
-echo "==> Checking out '$branch'"
+info "Checking out ${BOLD}$branch${RESET}"
 if git show-ref --verify --quiet "refs/heads/$branch"; then
     git checkout "$branch"
 else
@@ -72,12 +127,22 @@ else
 fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "Error: '$branch' has uncommitted local changes after checkout. Commit or stash them before resetting to remote."
-    git status --short
+    error "'${BOLD}$branch${RESET}' has uncommitted local changes after checkout. Commit or stash them before resetting to remote."
+    git status --short >&2
     exit 1
 fi
 
-echo "==> Resetting '$branch' to origin/$branch"
+info "Resetting ${BOLD}$branch${RESET} to ${BOLD}origin/$branch${RESET}"
 git reset --hard "origin/$branch"
 
-echo "Done. On branch '$branch'."
+if [ "$REBASE_WITH_DEVELOP" = true ]; then
+    info "Trying a conflict-free rebase of ${BOLD}$branch${RESET} onto ${BOLD}develop${RESET}"
+    if git rebase develop; then
+        success "Rebased ${BOLD}$branch${RESET} onto ${BOLD}develop${RESET}."
+    else
+        warn "Rebase produced conflicts or failed. Aborting and leaving ${BOLD}$branch${RESET} at ${BOLD}origin/$branch${RESET}."
+        git rebase --abort >/dev/null 2>&1 || true
+    fi
+fi
+
+success "Done. You are on ${BOLD}$branch${RESET}."
