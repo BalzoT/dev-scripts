@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: discard-changes
+#
+# Discards local tracked working-tree changes with `git checkout .`.
+# This does not remove untracked files and does not unstage staged changes.
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    BOLD=$'\033[1m'
+    RED=$'\033[31m'
+    GREEN=$'\033[32m'
+    BLUE=$'\033[34m'
+    RESET=$'\033[0m'
+else
+    BOLD=""
+    RED=""
+    GREEN=""
+    BLUE=""
+    RESET=""
+fi
+
+info() {
+    printf "%s\n" "${BLUE}🔹${RESET} $*"
+}
+
+success() {
+    printf "%s\n" "${GREEN}✅${RESET} $*"
+}
+
+error() {
+    printf "%s\n" "${RED}❌ Error:${RESET} $*" >&2
+}
+
+if [ $# -ne 0 ]; then
+    printf "%s\n" "${BOLD}Usage:${RESET} $0"
+    exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    error "not inside a git repository."
+    exit 1
+fi
+
+if git diff --quiet; then
+    success "No tracked working-tree changes to discard."
+    exit 0
+fi
+
+info "Discarding tracked working-tree changes with ${BOLD}git checkout .${RESET}"
+git checkout .
+
+success "Discarded tracked working-tree changes."
