@@ -51,14 +51,43 @@ What it does:
 
 ## Setup
 
-Make sure the scripts are executable and add this repository to your shell `PATH`.
+Make sure the scripts are executable.
 
 ```sh
 chmod +x checkout-ticket discard-changes
-export PATH="$PATH:/path/to/dev-scripts"
 ```
 
-To make the `PATH` change permanent, add the export line to your shell profile, such as `~/.zshrc`.
+### Add the scripts to your global `PATH`
+
+Add this repository directory to your shell `PATH` so the scripts can be run from any terminal session and from inside any project.
+
+For `zsh`, add this line to `~/.zshrc`:
+
+```sh
+export PATH="$PATH:/Users/valandiszotos/Code/dev-scripts"
+```
+
+Then reload your shell configuration:
+
+```sh
+source ~/.zshrc
+```
+
+For `bash`, add the same export line to `~/.bashrc` or `~/.bash_profile`, then reload that file.
+
+Verify that the commands are globally available:
+
+```sh
+command -v checkout-ticket
+command -v discard-changes
+```
+
+After that, you can run the scripts by name from any Git repository:
+
+```sh
+checkout-ticket cb1-246
+discard-changes
+```
 
 ## Requirements
 
