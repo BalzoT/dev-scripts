@@ -64,7 +64,7 @@ Add this repository directory to your shell `PATH` so the scripts can be run fro
 For `zsh`, add this line to `~/.zshrc`:
 
 ```sh
-export PATH="$PATH:/Users/valandiszotos/Code/dev-scripts"
+export PATH="$PATH:/Users/{YOUR_PATH}/Code/dev-scripts"
 ```
 
 Then reload your shell configuration:
