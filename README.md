@@ -1,10 +1,12 @@
 # dev-scripts
 
-Personal developer workflow scripts for recurring Git tasks.
+Personal developer workflow scripts for recurring operations.
 
-This repository contains small executable helpers that automate common branch and working-tree operations. The scripts are intentionally lightweight Bash commands that can be run from any Git repository once this directory is on your `PATH`.
+This repository contains small executable helpers that automate repeatable development tasks. Some scripts are Git-specific, while others may cover general local workflow operations. They are intentionally lightweight Bash commands that can be run from anywhere once this directory is on your `PATH`.
 
 ## Scripts
+
+Current scripts focus on Git workflows.
 
 ### `checkout-ticket`
 
@@ -61,5 +63,5 @@ To make the `PATH` change permanent, add the export line to your shell profile, 
 ## Requirements
 
 - Bash
-- Git
+- Git, for scripts that operate on Git repositories
 - A repository that uses `develop` as the integration branch for `checkout-ticket`
